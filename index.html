@@ -3,14 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BlushBreak • Team AFK</title>
+    <title>BlushBreak • Team AFK Tracker</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <style>
-        body {
-            font-family: 'Poppins', system-ui, sans-serif;
-            background: linear-gradient(135deg, #fdf2f8 0%, #fae8e8 100%);
-        }
+        body { font-family: 'Poppins', system-ui, sans-serif; background: linear-gradient(135deg, #fdf2f8 0%, #fae8e8 100%); }
         .glass { background: rgba(255,255,255,0.92); backdrop-filter: blur(20px); }
         .active-card { animation: pulse 2s infinite; }
         @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(236,72,153,0.4); } 70% { box-shadow: 0 0 0 25px rgba(236,72,153,0); }}
@@ -18,50 +15,37 @@
 </head>
 <body class="min-h-screen pb-12">
     <div class="max-w-6xl mx-auto px-6 pt-8">
-        
         <div class="flex justify-between items-center mb-10">
             <div class="flex items-center gap-4">
                 <div class="w-14 h-14 bg-gradient-to-br from-pink-500 to-pink-600 rounded-3xl flex items-center justify-center shadow-lg">
                     <i class="fa-solid fa-coffee text-white text-3xl"></i>
                 </div>
-                <h1 class="text-4xl font-bold text-pink-600 tracking-tight">BlushBreak</h1>
+                <h1 class="text-4xl font-bold text-pink-600">BlushBreak</h1>
             </div>
-            <p class="text-pink-400 font-medium text-lg">Team Break Tracker</p>
+            <p class="text-pink-400 font-medium">Shared Across All Devices</p>
         </div>
 
-        <!-- Add / Select User -->
+        <!-- Join Team -->
         <div class="glass rounded-3xl p-6 mb-8 border border-pink-100">
             <div class="flex gap-3">
-                <input id="user-name" type="text" placeholder="Your name" 
-                       class="flex-1 px-6 py-4 rounded-2xl border border-pink-200 focus:border-pink-400 focus:outline-none text-lg">
-                <button onclick="addUser()" 
-                        class="px-10 bg-pink-600 hover:bg-pink-700 text-white font-semibold rounded-2xl">
-                    Join Team
-                </button>
+                <input id="user-name" type="text" placeholder="Enter your name" 
+                       class="flex-1 px-6 py-4 rounded-2xl border border-pink-200 focus:border-pink-400 text-lg">
+                <button onclick="addUser()" class="px-10 bg-pink-600 hover:bg-pink-700 text-white font-semibold rounded-2xl">Join Team</button>
             </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            
             <!-- Start Break -->
             <div class="lg:col-span-7">
                 <div class="glass rounded-3xl p-8 border border-pink-100">
                     <h3 class="text-2xl font-semibold text-pink-700 mb-6">Start a Break</h3>
-                    
-                    <select id="user-select" class="w-full px-6 py-4 rounded-2xl border border-pink-200 mb-6 text-lg">
-                        <!-- populated by JS -->
-                    </select>
-
+                    <select id="user-select" class="w-full px-6 py-4 rounded-2xl border border-pink-200 mb-6 text-lg"></select>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="break-options"></div>
-
-                    <button onclick="startBreak()" 
-                            class="mt-8 w-full bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white py-6 rounded-2xl font-semibold text-xl shadow-lg">
-                        🚀 START BREAK
-                    </button>
+                    <button onclick="startBreak()" class="mt-8 w-full bg-gradient-to-r from-pink-500 to-pink-600 text-white py-6 rounded-2xl font-semibold text-xl shadow-lg">🚀 START BREAK</button>
                 </div>
             </div>
 
-            <!-- Live Away -->
+            <!-- Currently Away -->
             <div class="lg:col-span-5">
                 <div class="glass rounded-3xl p-6 border border-pink-100 h-full">
                     <h3 class="font-semibold text-xl text-pink-700 mb-5 flex items-center gap-2">
@@ -72,7 +56,7 @@
             </div>
         </div>
 
-        <!-- History -->
+        <!-- Recent Activity -->
         <div class="mt-10 glass rounded-3xl p-8 border border-pink-100">
             <h3 class="font-semibold text-xl text-pink-700 mb-6">Recent Activity</h3>
             <div id="history-list" class="space-y-3"></div>
@@ -80,9 +64,10 @@
     </div>
 
     <script>
-        let users = JSON.parse(localStorage.getItem("teamUsers")) || [];
-        let activeBreaks = JSON.parse(localStorage.getItem("teamBreaks")) || [];
-        let history = JSON.parse(localStorage.getItem("teamHistory")) || [];
+        const BIN_ID = "6a1fbf3ef5f4af5e29b0aaef";
+        const MASTER_KEY = "$2a$10$rpKZV1xmoBH3ajAK0fpQ9uKGSk6sK5bhZq9Mr4MZv4bmpl/QbhJ9S";
+
+        const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
 
         const breakTypes = [
             { name: "Lunch", icon: "🍱" }, { name: "Bathroom", icon: "🚽" },
@@ -93,15 +78,42 @@
 
         let selectedBreakType = null;
 
-        function renderUsers() {
-            const select = document.getElementById("user-select");
-            select.innerHTML = '<option value="">— Select Your Name —</option>';
-            users.forEach(user => {
-                const opt = document.createElement("option");
-                opt.value = user;
-                opt.textContent = user;
-                select.appendChild(opt);
-            });
+        async function loadData() {
+            try {
+                const res = await fetch(`${API_URL}/latest`, {
+                    headers: { "X-Master-Key": MASTER_KEY }
+                });
+                const json = await res.json();
+                return json.record || { users: [], active: [], history: [] };
+            } catch(e) {
+                console.error("Error loading:", e);
+                return { users: [], active: [], history: [] };
+            }
+        }
+
+        async function saveData(data) {
+            try {
+                await fetch(API_URL, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json", "X-Master-Key": MASTER_KEY },
+                    body: JSON.stringify(data)
+                });
+            } catch(e) {
+                console.error("Error saving:", e);
+            }
+        }
+
+        async function addUser() {
+            const name = document.getElementById("user-name").value.trim();
+            if (!name) return alert("Please enter a name");
+            
+            const data = await loadData();
+            if (!data.users.includes(name)) {
+                data.users.push(name);
+                await saveData(data);
+            }
+            document.getElementById("user-name").value = "";
+            loadUsers();
         }
 
         function renderBreakOptions() {
@@ -120,146 +132,102 @@
             });
         }
 
-        function addUser() {
-            const input = document.getElementById("user-name");
-            const name = input.value.trim();
-            if (name && !users.includes(name)) {
-                users.push(name);
-                localStorage.setItem("teamUsers", JSON.stringify(users));
-                renderUsers();
-                input.value = "";
-            }
-        }
-
-        window.startBreak = function() {
+        async function startBreak() {
             const user = document.getElementById("user-select").value;
             if (!user) return alert("Please select your name");
             if (!selectedBreakType) return alert("Please choose a break type");
 
-            // Remove any existing break for this user
-            activeBreaks = activeBreaks.filter(b => b.user !== user);
-
-            activeBreaks.push({
-                user: user,
-                type: selectedBreakType,
-                startTime: Date.now()
-            });
-
-            localStorage.setItem("teamBreaks", JSON.stringify(activeBreaks));
-            renderLiveBreaks();
+            const data = await loadData();
+            data.active = data.active.filter(b => b.user !== user);
+            data.active.push({ user: user, type: selectedBreakType, startTime: Date.now() });
+            await saveData(data);
             selectedBreakType = null;
-        };
+        }
 
-        function endBreak(user) {
-            const breakIndex = activeBreaks.findIndex(b => b.user === user);
-            if (breakIndex === -1) return;
+        async function endBreak(user) {
+            const data = await loadData();
+            const br = data.active.find(b => b.user === user);
+            if (!br) return;
 
-            const br = activeBreaks[breakIndex];
             const duration = Math.round((Date.now() - br.startTime) / 60000);
-
-            history.unshift({
-                user: br.user,
+            data.history.unshift({
+                user: user,
                 type: br.type,
                 duration: duration,
                 time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
             });
-
-            if (history.length > 50) history.pop();
-
-            activeBreaks.splice(breakIndex, 1);
-
-            localStorage.setItem("teamBreaks", JSON.stringify(activeBreaks));
-            localStorage.setItem("teamHistory", JSON.stringify(history));
-
-            renderLiveBreaks();
-            renderHistory();
+            data.active = data.active.filter(b => b.user !== user);
+            await saveData(data);
         }
 
-        function renderLiveBreaks() {
-            const container = document.getElementById("live-breaks");
-            container.innerHTML = "";
+        async function loadUsers() {
+            const data = await loadData();
+            const select = document.getElementById("user-select");
+            select.innerHTML = '<option value="">— Select Your Name —</option>';
+            data.users.forEach(u => {
+                const opt = document.createElement("option");
+                opt.value = u;
+                opt.textContent = u;
+                select.appendChild(opt);
+            });
+        }
 
-            if (activeBreaks.length === 0) {
-                container.innerHTML = `<p class="text-center py-12 text-pink-300">Everyone is working 💕</p>`;
-                return;
-            }
-
-            activeBreaks.forEach(br => {
-                const elapsedMs = Date.now() - br.startTime;
-                const minutes = Math.floor(elapsedMs / 60000);
-                const seconds = Math.floor((elapsedMs % 60000) / 1000);
-
-                const card = document.createElement("div");
-                card.className = "active-card bg-white rounded-2xl p-5 border border-pink-100 shadow-sm";
-                card.innerHTML = `
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-4">
-                            <span class="text-4xl">${br.type.icon}</span>
-                            <div>
-                                <p class="font-semibold text-lg text-pink-700">${br.user}</p>
-                                <p class="text-pink-500">${br.type.name}</p>
+        async function refreshUI() {
+            const data = await loadData();
+            
+            const liveDiv = document.getElementById("live-breaks");
+            liveDiv.innerHTML = "";
+            if (data.active.length === 0) {
+                liveDiv.innerHTML = `<p class="text-pink-300 text-center py-10">Everyone is working 💕</p>`;
+            } else {
+                data.active.forEach(br => {
+                    const minutes = Math.floor((Date.now() - br.startTime) / 60000);
+                    const card = document.createElement("div");
+                    card.className = "active-card bg-white rounded-2xl p-5 border border-pink-100";
+                    card.innerHTML = `
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center gap-4">
+                                <span class="text-4xl">${br.type.icon}</span>
+                                <div>
+                                    <p class="font-semibold text-lg">${br.user}</p>
+                                    <p class="text-pink-500">${br.type.name}</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <p class="font-mono text-3xl font-bold text-pink-600">${minutes} min</p>
+                                <button onclick="endBreak('${br.user}')" class="mt-3 px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium">✅ RETURN</button>
                             </div>
                         </div>
-                        <div class="text-right">
-                            <p class="font-mono text-3xl font-bold text-pink-600" id="timer-${br.user}">
-                                ${minutes}:${seconds.toString().padStart(2, '0')}
-                            </p>
-                            <button onclick="endBreak('${br.user}')" 
-                                    class="mt-2 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-xl">
-                                ✅ RETURN
-                            </button>
-                        </div>
-                    </div>
-                `;
-                container.appendChild(card);
-            });
-        }
-
-        function renderHistory() {
-            const container = document.getElementById("history-list");
-            container.innerHTML = "";
-
-            if (history.length === 0) {
-                container.innerHTML = `<p class="text-pink-300 text-center py-8">No activity yet</p>`;
-                return;
+                    `;
+                    liveDiv.appendChild(card);
+                });
             }
 
-            history.forEach(entry => {
+            const histDiv = document.getElementById("history-list");
+            histDiv.innerHTML = "";
+            data.history.slice(0, 20).forEach(h => {
                 const div = document.createElement("div");
-                div.className = "flex items-center justify-between bg-white p-5 rounded-2xl border border-pink-100";
+                div.className = "flex justify-between items-center bg-white p-5 rounded-2xl border border-pink-100";
                 div.innerHTML = `
                     <div class="flex items-center gap-4">
-                        <span class="text-3xl">${entry.type.icon}</span>
+                        <span class="text-3xl">${h.type.icon}</span>
                         <div>
-                            <p class="font-medium">${entry.user}</p>
-                            <p class="text-sm text-pink-400">${entry.type.name} • ${entry.time}</p>
+                            <p class="font-medium">${h.user}</p>
+                            <p class="text-sm text-pink-400">${h.type.name} • ${h.time}</p>
                         </div>
                     </div>
-                    <div class="font-bold text-pink-600">${entry.duration} min</div>
+                    <div class="font-bold text-pink-600">${h.duration} min</div>
                 `;
-                container.appendChild(div);
+                histDiv.appendChild(div);
             });
         }
 
-        // Live timer update
-        setInterval(() => {
-            activeBreaks.forEach(br => {
-                const el = document.getElementById(`timer-${br.user}`);
-                if (el) {
-                    const elapsedMs = Date.now() - br.startTime;
-                    const min = Math.floor(elapsedMs / 60000);
-                    const sec = Math.floor((elapsedMs % 60000) / 1000);
-                    el.textContent = `${min}:${sec.toString().padStart(2, '0')}`;
-                }
-            });
-        }, 1000);
+        setInterval(refreshUI, 6000);
 
-        // Initialize
         window.onload = () => {
-            renderUsers();
             renderBreakOptions();
-            renderLiveBreaks();
-            renderHistory();
+            loadUsers();
+            refreshUI();
         };
     </script>
 </body>
