@@ -27,11 +27,26 @@
             <p class="text-pink-400 font-medium">Shared Across Devices</p>
         </div>
 
+        <!-- Join + Manage -->
         <div class="glass rounded-3xl p-6 mb-8 border border-pink-100">
-            <div class="flex gap-3">
+            <div class="flex gap-3 mb-6">
                 <input id="user-name" type="text" placeholder="Enter your name" 
                        class="flex-1 px-6 py-4 rounded-2xl border border-pink-200 focus:border-pink-400 text-lg">
                 <button onclick="addUser()" class="px-10 bg-pink-600 hover:bg-pink-700 text-white font-semibold rounded-2xl">Join Team</button>
+            </div>
+
+            <div class="pt-4 border-t border-pink-100">
+                <h4 class="text-pink-600 font-medium mb-3">Manage Team</h4>
+                <div class="flex gap-3">
+                    <button onclick="clearHistory()" 
+                            class="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-2xl font-medium">
+                        🗑️ Clear All Logs
+                    </button>
+                    <button onclick="showUserManagement()" 
+                            class="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-3 rounded-2xl font-medium">
+                        👥 Manage Users
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -58,6 +73,15 @@
         <div class="mt-10 glass rounded-3xl p-8 border border-pink-100">
             <h3 class="font-semibold text-xl text-pink-700 mb-6">Recent Activity</h3>
             <div id="history-list" class="space-y-3"></div>
+        </div>
+    </div>
+
+    <!-- User Management Modal -->
+    <div id="user-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="glass rounded-3xl p-8 max-w-md w-full mx-4">
+            <h3 class="text-2xl font-semibold text-pink-700 mb-6">Manage Users</h3>
+            <div id="user-list" class="max-h-96 overflow-auto space-y-2"></div>
+            <button onclick="closeModal()" class="mt-6 w-full py-3 bg-gray-200 hover:bg-gray-300 rounded-2xl font-medium">Close</button>
         </div>
     </div>
 
@@ -124,12 +148,11 @@
             if (!user) return alert("Please select your name");
             if (!selectedBreakType) return alert("Please choose a break type");
 
-            // Instant UI update
             localData.active = localData.active.filter(b => b.user !== user);
             localData.active.push({ user, type: selectedBreakType, startTime: Date.now() });
             
             refreshUI();
-            await saveData();           // Save quietly in background
+            await saveData();
             selectedBreakType = null;
         }
 
@@ -140,13 +163,7 @@
             const br = localData.active[brIndex];
             const duration = Math.round((Date.now() - br.startTime) / 60000);
 
-            localData.history.unshift({
-                user, 
-                type: br.type, 
-                duration, 
-                time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
-            });
-
+            localData.history.unshift({ user, type: br.type, duration, time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) });
             localData.active.splice(brIndex, 1);
 
             refreshUI();
@@ -165,13 +182,9 @@
         }
 
         function refreshUI() {
+            // Live Breaks with MM:SS
             const liveDiv = document.getElementById("live-breaks");
-            liveDiv.innerHTML = "";
-
-            if (localData.active.length === 0) {
-                liveDiv.innerHTML = `<p class="text-pink-300 text-center py-12">Everyone is working 💕</p>`;
-                return;
-            }
+            liveDiv.innerHTML = localData.active.length ? "" : `<p class="text-pink-300 text-center py-12">Everyone is working 💕</p>`;
 
             localData.active.forEach(br => {
                 const elapsed = Date.now() - br.startTime;
@@ -199,9 +212,28 @@
                 `;
                 liveDiv.appendChild(card);
             });
+
+            // History
+            const histDiv = document.getElementById("history-list");
+            histDiv.innerHTML = "";
+            localData.history.slice(0, 20).forEach(h => {
+                const div = document.createElement("div");
+                div.className = "flex justify-between items-center bg-white p-5 rounded-2xl border border-pink-100";
+                div.innerHTML = `
+                    <div class="flex items-center gap-4">
+                        <span class="text-3xl">${h.type.icon}</span>
+                        <div>
+                            <p class="font-medium">${h.user}</p>
+                            <p class="text-sm text-pink-400">${h.type.name} • ${h.time}</p>
+                        </div>
+                    </div>
+                    <div class="font-bold text-pink-600">${h.duration} min</div>
+                `;
+                histDiv.appendChild(div);
+            });
         }
 
-        // Live seconds timer
+        // Live timer
         setInterval(() => {
             document.querySelectorAll('[id^="timer-"]').forEach(el => {
                 const user = el.id.replace('timer-', '');
@@ -215,10 +247,55 @@
             });
         }, 1000);
 
-        // Sync with server every 10 seconds
-        setInterval(() => {
-            loadData().then(() => refreshUI());
-        }, 10000);
+        setInterval(() => loadData().then(refreshUI), 10000);
+
+        // ==================== NEW FEATURES ====================
+
+        function showUserManagement() {
+            const modal = document.getElementById("user-modal");
+            const list = document.getElementById("user-list");
+            list.innerHTML = "";
+
+            if (localData.users.length === 0) {
+                list.innerHTML = `<p class="text-pink-300 py-8 text-center">No users yet</p>`;
+            } else {
+                localData.users.forEach(user => {
+                    const div = document.createElement("div");
+                    div.className = "flex justify-between items-center bg-white p-4 rounded-2xl border border-pink-100";
+                    div.innerHTML = `
+                        <span class="font-medium">${user}</span>
+                        <button onclick="deleteUser('${user}')" class="text-red-500 hover:text-red-600 px-4 py-1 rounded-xl hover:bg-red-50">
+                            Delete
+                        </button>
+                    `;
+                    list.appendChild(div);
+                });
+            }
+            modal.classList.remove("hidden");
+        }
+
+        async function deleteUser(user) {
+            if (!confirm(`Delete ${user} from team?`)) return;
+            
+            localData.users = localData.users.filter(u => u !== user);
+            localData.active = localData.active.filter(b => b.user !== user);
+            await saveData();
+            closeModal();
+            loadUsers();
+            refreshUI();
+        }
+
+        function closeModal() {
+            document.getElementById("user-modal").classList.add("hidden");
+        }
+
+        async function clearHistory() {
+            if (!confirm("Clear ALL history logs? This cannot be undone.")) return;
+            localData.history = [];
+            await saveData();
+            refreshUI();
+            alert("History cleared successfully");
+        }
 
         window.onload = () => {
             renderBreakOptions();
